@@ -13127,11 +13127,16 @@ div#notebook {
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ipywidgets</span> <span class="kn">import</span> <span class="n">interact</span>
+<span class="kn">import</span> <span class="nn">ipywidgets</span> <span class="k">as</span> <span class="nn">widgets</span>
+<span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">display</span>
 
 <span class="k">def</span> <span class="nf">square</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span>
-
-<span class="n">interact</span><span class="p">(</span><span class="n">square</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">upload</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">FileUpload</span><span class="p">(</span>
+    <span class="n">accept</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>  <span class="c1"># Accepted file extension e.g. &#39;.txt&#39;, &#39;.pdf&#39;, &#39;image/*&#39;, &#39;image/*,.pdf&#39;</span>
+    <span class="n">multiple</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># True to accept multiple files upload else False</span>
+<span class="p">)</span>
+<span class="n">display</span><span class="p">(</span><span class="n">upload</span><span class="p">,</span> <span class="n">interact</span><span class="p">(</span><span class="n">square</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">))</span>
 </pre></div>
 
     </div>
@@ -13162,7 +13167,21 @@ div#notebook {
 
 
 
-<div class="output_text output_subarea output_execute_result">
+  <div class="output_subarea output_widget_view ">
+    <button class="js-nbinteract-widget">
+      Loading widgets...
+    </button>
+  </div>
+
+</div>
+
+<div class="output_area">
+
+    
+
+
+
+<div class="output_text output_subarea ">
 <pre>&lt;function __main__.square(x)&gt;</pre>
 </div>
 
@@ -13203,7 +13222,7 @@ div#notebook {
     }
 
     var interact = new window.NbInteract({
-      spec: 'ZYQ-FEIYUE/nbtest/main',
+      spec: 'ZYQ-FEIYUE/nbtest/master',
       baseUrl: 'https://mybinder.org',
       provider: 'gh',
     })
