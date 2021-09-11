@@ -13126,17 +13126,350 @@ div#notebook {
 
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">ipywidgets</span> <span class="kn">import</span> <span class="n">interact</span>
-<span class="kn">import</span> <span class="nn">ipywidgets</span> <span class="k">as</span> <span class="nn">widgets</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">ipywidgets</span> <span class="k">as</span> <span class="nn">widgets</span>
+<span class="kn">from</span> <span class="nn">ipywidgets</span> <span class="kn">import</span> <span class="n">interact</span><span class="p">,</span> <span class="n">interact_manual</span>
 <span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">display</span>
+<span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">mpl_toolkits.axes_grid1.inset_locator</span> <span class="kn">import</span> <span class="n">inset_axes</span>
+<span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="kn">import</span> <span class="n">make_interp_spline</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;font.sans-serif&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;SimHei&#39;</span><span class="p">]</span>  <span class="c1"># 用来正常显示中文标签</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;axes.unicode_minus&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 用来正常显示负号</span>
+<span class="c1"># -*- coding: UTF-8 -*-</span>
 
-<span class="k">def</span> <span class="nf">square</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span>
-<span class="n">upload</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">FileUpload</span><span class="p">(</span>
-    <span class="n">accept</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>  <span class="c1"># Accepted file extension e.g. &#39;.txt&#39;, &#39;.pdf&#39;, &#39;image/*&#39;, &#39;image/*,.pdf&#39;</span>
+<span class="c1"># widgets.Button(</span>
+<span class="c1">#     description=&#39;Click me&#39;,</span>
+<span class="c1">#     disabled=False,</span>
+<span class="c1">#     button_style=&#39;success&#39;, # &#39;success&#39;, &#39;info&#39;, &#39;warning&#39;, &#39;danger&#39; or &#39;&#39;</span>
+<span class="c1">#     tooltip=&#39;Click me&#39;,</span>
+<span class="c1">#     icon=&#39;check&#39;</span>
+<span class="c1"># )</span>
+
+
+<span class="c1"># # 调整按钮</span>
+<span class="c1"># from ipywidgets import Button, Layout</span>
+
+<span class="c1"># b = Button(description=&#39;(50% width, 80px height) button&#39;,</span>
+<span class="c1">#            layout=Layout(width=&#39;50%&#39;, height=&#39;80px&#39;),</span>
+<span class="c1">#           button_style=&#39;success&#39;)</span>
+
+<span class="c1"># upload = widgets.FileUpload(</span>
+<span class="c1">#     accept=&#39;&#39;,  # Accepted file extension e.g. &#39;.txt&#39;, &#39;.pdf&#39;, &#39;image/*&#39;, &#39;image/*,.pdf&#39;</span>
+<span class="c1">#     multiple=False,  # True to accept multiple files upload else False</span>
+<span class="c1"># )</span>
+<span class="n">accordion</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Accordion</span><span class="p">(</span><span class="n">children</span><span class="o">=</span><span class="p">[</span><span class="n">widgets</span><span class="o">.</span><span class="n">IntSlider</span><span class="p">(),</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Text</span><span class="p">()],</span> <span class="n">titles</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;Slider&#39;</span><span class="p">,</span> <span class="s1">&#39;Text&#39;</span><span class="p">))</span>
+
+<span class="c1"># widgets.HBox([b, upload])</span>
+<span class="n">tab_nest</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Tab</span><span class="p">()</span> <span class="c1"># 标签</span>
+<span class="n">tab_nest</span><span class="o">.</span><span class="n">children</span> <span class="o">=</span> <span class="p">[</span><span class="n">accordion</span><span class="p">,</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Text</span><span class="p">(),</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Text</span><span class="p">(),</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Text</span><span class="p">()]</span>
+<span class="n">tab_nest</span><span class="o">.</span><span class="n">titles</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;air_vref_test&#39;</span><span class="p">,</span> <span class="s1">&#39;1000ppm_test&#39;</span><span class="p">,</span> <span class="s2">&quot;氧依赖性&quot;</span><span class="p">,</span> <span class="s2">&quot;极限电流&quot;</span><span class="p">)</span>
+<span class="n">tab_nest</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;特性曲线空气&quot;</span><span class="p">)</span>
+<span class="n">tab_nest</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;特性曲线1000ppm&quot;</span><span class="p">)</span>
+<span class="n">tab_nest</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;氧依赖性&quot;</span><span class="p">)</span>
+<span class="n">tab_nest</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;极限电流&quot;</span><span class="p">)</span>
+<span class="n">tab_nest</span><span class="o">.</span><span class="n">titles</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;sdfsf&quot;</span><span class="p">,</span> <span class="s2">&quot;sdfsdf&quot;</span><span class="p">)</span>
+<span class="n">tab_nest</span>
+
+<span class="n">upload_air</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">FileUpload</span><span class="p">(</span>
+    <span class="n">accept</span><span class="o">=</span><span class="s1">&#39;.xlsx&#39;</span><span class="p">,</span>  <span class="c1"># Accepted file extension e.g. &#39;.txt&#39;, &#39;.pdf&#39;, &#39;image/*&#39;, &#39;image/*,.pdf&#39;</span>
     <span class="n">multiple</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># True to accept multiple files upload else False</span>
 <span class="p">)</span>
-<span class="n">display</span><span class="p">(</span><span class="n">upload</span><span class="p">,</span> <span class="n">interact</span><span class="p">(</span><span class="n">square</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">on_air_file_button_clicked</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+    <span class="n">upload_air</span><span class="o">.</span><span class="n">disabled</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">upload_air</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+    <span class="n">upload_air</span><span class="o">.</span><span class="n">_counter</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">upload_air</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+    <span class="n">output</span><span class="o">.</span><span class="n">_flush</span><span class="p">()</span>
+<span class="n">air_file_button</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;重新选择&quot;</span><span class="p">)</span>
+<span class="n">air_test_air_data</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">HBox</span><span class="p">([</span><span class="n">widgets</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;空气下联泵数据：&quot;</span><span class="p">),</span> <span class="n">upload_air</span><span class="p">,</span> <span class="n">air_file_button</span><span class="p">])</span>
+<span class="n">air_file_button</span><span class="o">.</span><span class="n">on_click</span><span class="p">(</span><span class="n">on_air_file_button_clicked</span><span class="p">)</span>
+
+<span class="n">upload_vref</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">FileUpload</span><span class="p">(</span>
+    <span class="n">accept</span><span class="o">=</span><span class="s1">&#39;.xlsx&#39;</span><span class="p">,</span>  <span class="c1"># Accepted file extension e.g. &#39;.txt&#39;, &#39;.pdf&#39;, &#39;image/*&#39;, &#39;image/*,.pdf&#39;</span>
+    <span class="n">multiple</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># True to accept multiple files upload else False</span>
+<span class="p">)</span>
+<span class="k">def</span> <span class="nf">on_vref_file_button_clicked</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+    <span class="n">upload_vref</span><span class="o">.</span><span class="n">disabled</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">upload_vref</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+    <span class="n">upload_vref</span><span class="o">.</span><span class="n">_counter</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">vref_file_button</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;重新选择&quot;</span><span class="p">)</span>
+<span class="n">vref_test_air_data</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">HBox</span><span class="p">([</span><span class="n">widgets</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;空气下Vref数据：&quot;</span><span class="p">),</span> <span class="n">upload_vref</span><span class="p">,</span> <span class="n">vref_file_button</span><span class="p">])</span>
+<span class="n">vref_file_button</span><span class="o">.</span><span class="n">on_click</span><span class="p">(</span><span class="n">on_vref_file_button_clicked</span><span class="p">)</span>
+
+<span class="n">picture_title</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Text</span><span class="p">()</span>
+<span class="n">picture_title_data</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">HBox</span><span class="p">([</span><span class="n">widgets</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;图片标题(为0默认为表格名称)：&quot;</span><span class="p">),</span> <span class="n">picture_title</span><span class="p">])</span>
+
+<span class="n">x_title_lb</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;横坐标(都为0则不限制)：&quot;</span><span class="p">)</span>
+<span class="n">x_min_title_lb</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;最小值：&quot;</span><span class="p">)</span>
+<span class="n">x_min_title</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Text</span><span class="p">()</span>
+<span class="n">x_max_title_lb</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;最大值：&quot;</span><span class="p">)</span>
+<span class="n">x_max_title</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Text</span><span class="p">()</span>
+<span class="n">x_axis</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">HBox</span><span class="p">([</span><span class="n">x_title_lb</span><span class="p">,</span> <span class="n">x_min_title_lb</span><span class="p">,</span> <span class="n">x_min_title</span><span class="p">,</span> <span class="n">x_max_title_lb</span><span class="p">,</span> <span class="n">x_max_title</span><span class="p">])</span>
+
+<span class="n">y_title_lb</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;纵坐标(都为0则不限制)：&quot;</span><span class="p">)</span>
+<span class="n">y_min_title_lb</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;最小值：&quot;</span><span class="p">)</span>
+<span class="n">y_min_title</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Text</span><span class="p">()</span>
+<span class="n">y_max_title_lb</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;最大值：&quot;</span><span class="p">)</span>
+<span class="n">y_max_title</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Text</span><span class="p">()</span>
+<span class="n">y_axis</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">HBox</span><span class="p">([</span><span class="n">y_title_lb</span><span class="p">,</span> <span class="n">y_min_title_lb</span><span class="p">,</span> <span class="n">y_min_title</span><span class="p">,</span> <span class="n">y_max_title_lb</span><span class="p">,</span> <span class="n">y_max_title</span><span class="p">])</span>
+
+<span class="n">button</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">&quot;生成&quot;</span><span class="p">)</span>
+<span class="n">output</span> <span class="o">=</span> <span class="n">widgets</span><span class="o">.</span><span class="n">Output</span><span class="p">()</span>
+<span class="n">display</span><span class="p">(</span><span class="n">air_test_air_data</span><span class="p">,</span> <span class="n">vref_test_air_data</span><span class="p">,</span> <span class="n">picture_title_data</span><span class="p">,</span> <span class="n">x_axis</span><span class="p">,</span> <span class="n">y_axis</span><span class="p">,</span> <span class="n">button</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">read_excel</span><span class="p">(</span><span class="n">upload</span><span class="p">):</span>
+    <span class="n">uploaded_file</span> <span class="o">=</span> <span class="n">upload</span><span class="o">.</span><span class="n">value</span>
+    <span class="n">file_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">uploaded_file</span><span class="p">:</span>
+        <span class="n">file_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">(</span><span class="n">record</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;always&quot;</span><span class="p">)</span>
+        <span class="n">data_xls</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">ExcelFile</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">uploaded_file</span><span class="p">[</span><span class="n">file_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="s1">&#39;content&#39;</span><span class="p">]))</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">data_xls</span><span class="o">.</span><span class="n">sheet_names</span><span class="p">:</span>
+            <span class="c1"># df=data_xls.parse(sheet_name=name,header=None)</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">data_xls</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">sheet_name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
+    <span class="k">return</span> <span class="n">data</span>
+
+<span class="c1"># 解析sheet数据</span>
+<span class="k">def</span> <span class="nf">handle_sheet_data</span><span class="p">(</span><span class="n">sheet_data</span><span class="p">,</span> <span class="n">row_name</span><span class="p">,</span> <span class="n">column_name</span><span class="p">,</span> <span class="n">ip1_limit</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">index_data</span> <span class="o">=</span> <span class="n">sheet_data</span><span class="p">[</span><span class="n">sheet_data</span><span class="p">[</span><span class="s1">&#39;IP2&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="n">row_name</span><span class="p">])]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="n">index_data</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">index_x</span> <span class="o">=</span> <span class="n">sheet_data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="s1">&#39;温度&#39;</span><span class="p">)</span> <span class="c1"># 根据列名获取下标</span>
+    <span class="n">index_y</span> <span class="o">=</span> <span class="n">sheet_data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="n">column_name</span><span class="p">)</span> <span class="c1"># 根据列名获取下标</span>
+    <span class="n">column_count</span> <span class="o">=</span> <span class="n">getTemperTime</span><span class="p">(</span><span class="n">sheet_data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ip1_limit</span> <span class="o">==</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">ip1_index</span> <span class="o">=</span> <span class="n">find_ip1_close</span><span class="p">(</span><span class="n">sheet_data</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ip1_index</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">sheet_data</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">index_data</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">ip1_index</span><span class="p">:</span><span class="n">index_data</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">column_count</span><span class="p">,</span> <span class="n">index_x</span><span class="p">]</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">sheet_data</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">index_data</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">ip1_index</span><span class="p">:</span><span class="n">index_data</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">column_count</span><span class="p">,</span> <span class="n">index_y</span><span class="p">]</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">y</span>
+    <span class="k">return</span> <span class="n">data</span>
+
+<span class="n">IP1_SET</span> <span class="o">=</span> <span class="mi">7</span>
+<span class="c1"># 找到IP1闭环的下标</span>
+<span class="k">def</span> <span class="nf">find_ip1_close</span><span class="p">(</span><span class="n">sheet_data</span><span class="p">):</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">index_data</span> <span class="o">=</span> <span class="n">sheet_data</span><span class="p">[</span><span class="n">sheet_data</span><span class="p">[</span><span class="s1">&#39;IP2&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="s1">&#39;IP1&#39;</span><span class="p">])]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="n">index_data</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">index_ip1</span> <span class="o">=</span> <span class="n">sheet_data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="s1">&#39;温度&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="c1"># 根据列名获取下标 eg:V1_400</span>
+    <span class="n">column_count</span> <span class="o">=</span> <span class="n">getTemperTime</span><span class="p">(</span><span class="n">sheet_data</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">sheet_data</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">index_data</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span><span class="n">index_data</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">column_count</span><span class="p">,</span> <span class="n">index_ip1</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">ip1</span> <span class="ow">in</span> <span class="n">x</span> <span class="p">:</span>
+        <span class="n">ip1</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ip1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ip1</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="n">IP1_SET</span> <span class="o">-</span> <span class="mf">0.2</span><span class="p">)</span> <span class="ow">and</span> <span class="n">ip1</span> <span class="o">&lt;=</span> <span class="p">(</span><span class="n">IP1_SET</span> <span class="o">+</span> <span class="mf">0.2</span><span class="p">):</span>
+            <span class="k">break</span>
+        <span class="n">index</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">index</span>
+
+<span class="c1"># series数据放入字典</span>
+<span class="k">def</span> <span class="nf">series_dic</span><span class="p">(</span><span class="n">sheet_data</span><span class="p">,</span> <span class="n">paintName</span><span class="p">,</span> <span class="n">seriesName</span><span class="p">,</span> <span class="n">ip1_limit</span><span class="p">):</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">seriesName</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">handle_sheet_data</span><span class="p">(</span><span class="n">sheet_data</span><span class="p">,</span> <span class="n">paintName</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">ip1_limit</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span>
+
+<span class="c1"># pic数据放入字典</span>
+<span class="k">def</span> <span class="nf">pic_dic</span><span class="p">(</span><span class="n">sheet_data</span><span class="p">,</span> <span class="n">picNameList</span><span class="p">,</span> <span class="n">seriesNameList</span><span class="p">,</span> <span class="n">ip1_limit</span><span class="p">):</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">picNameList</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">series_dic</span><span class="p">(</span><span class="n">sheet_data</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">seriesNameList</span><span class="p">,</span> <span class="n">ip1_limit</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span>
+<span class="c1"># 计算电导率，输入空气sheet，空泵sheet</span>
+<span class="k">def</span> <span class="nf">conductivity_data</span><span class="p">(</span><span class="n">air_sheet</span><span class="p">,</span> <span class="n">none_sheet</span><span class="p">):</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">data_kelvins</span> <span class="o">=</span> <span class="p">[]</span> <span class="c1"># 开尔文数组</span>
+    <span class="n">data_R</span> <span class="o">=</span> <span class="p">[]</span> <span class="c1"># 电阻数组</span>
+    <span class="n">data_x</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">data_y</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">air_dic</span> <span class="o">=</span> <span class="n">pic_dic</span><span class="p">(</span><span class="n">air_sheet</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;Vref&#39;</span><span class="p">,</span> <span class="s1">&#39;IP0&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;V1_450&#39;</span><span class="p">],</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">none_dic</span> <span class="o">=</span> <span class="n">pic_dic</span><span class="p">(</span><span class="n">none_sheet</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;Vref&#39;</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;V1_450&#39;</span><span class="p">],</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">air_vref_series</span> <span class="o">=</span> <span class="n">air_dic</span><span class="p">[</span><span class="s1">&#39;Vref&#39;</span><span class="p">][</span><span class="s1">&#39;V1_450&#39;</span><span class="p">]</span>
+    <span class="n">air_ip0_series</span> <span class="o">=</span> <span class="n">air_dic</span><span class="p">[</span><span class="s1">&#39;IP0&#39;</span><span class="p">][</span><span class="s1">&#39;V1_450&#39;</span><span class="p">]</span>
+    <span class="n">none_series</span> <span class="o">=</span> <span class="n">none_dic</span><span class="p">[</span><span class="s1">&#39;Vref&#39;</span><span class="p">][</span><span class="s1">&#39;V1_450&#39;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">air_vref_series</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]:</span>
+        <span class="n">data_kelvins</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="mf">274.15</span><span class="p">)</span> <span class="c1"># 温度转开尔文</span>
+    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">data_kelvins</span><span class="p">:</span> <span class="c1"># 1000 / T</span>
+        <span class="n">data_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">1000</span> <span class="o">/</span> <span class="n">x</span><span class="p">)</span>
+    <span class="c1"># 欧姆计算</span>
+    <span class="k">for</span> <span class="n">air_vref</span><span class="p">,</span> <span class="n">none_vref</span><span class="p">,</span> <span class="n">air_ip0</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">air_vref_series</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">],</span> <span class="n">none_series</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">],</span> <span class="n">air_ip0_series</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data_R</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">none_vref</span> <span class="o">-</span> <span class="n">air_vref</span><span class="p">)</span> <span class="o">/</span> <span class="n">air_ip0</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">data_R</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="c1"># 电导率计算</span>
+    <span class="k">for</span> <span class="n">R</span><span class="p">,</span> <span class="n">T</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">data_R</span><span class="p">,</span> <span class="n">data_kelvins</span><span class="p">):</span>
+        <span class="k">try</span> <span class="p">:</span>
+            <span class="n">data_y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">R</span> <span class="o">*</span> <span class="n">T</span><span class="p">))</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">data_y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># data_y.append(0)</span>
+<span class="c1">#         try:</span>
+<span class="c1">#             print(&#39;电导率 &#39;, 1 / R * T)</span>
+<span class="c1">#         except:</span>
+<span class="c1">#             print(&#39;电导率：0&#39;)</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data_x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data_y</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+    <span class="n">data_1</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">data_2</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">data_1</span><span class="p">[</span><span class="s1">&#39;1000T ln(1/R*T)&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>
+    <span class="c1"># T R</span>
+    <span class="n">data_11</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">data_11</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data_kelvins</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+    <span class="n">data_11</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">data_R</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+    <span class="n">data_2</span><span class="p">[</span><span class="s1">&#39;T R&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_11</span>
+    <span class="n">returnData</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">returnData</span><span class="p">[</span><span class="s1">&#39;1000T ln(1/R*T)&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_1</span>
+    <span class="n">returnData</span><span class="p">[</span><span class="s1">&#39;T R&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_2</span>
+    <span class="k">return</span> <span class="n">returnData</span>
+
+<span class="c1"># 获取气氛数量</span>
+<span class="k">def</span> <span class="nf">getTemperTime</span><span class="p">(</span><span class="n">sheet_data</span><span class="p">):</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># 气氛数量</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="n">sheet_data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="s2">&quot;序号&quot;</span><span class="p">)</span> <span class="c1"># 根据列名获取下标</span>
+    <span class="n">count_index</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># 序号的索引</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">sheet_data</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">count_index</span><span class="p">:,</span> <span class="n">count</span><span class="p">]</span> <span class="c1"># 数据</span>
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)):</span> <span class="c1"># 从1开始去掉序号</span>
+        <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">index</span><span class="p">]):</span> <span class="c1"># 找到nan位置，再减1</span>
+            <span class="n">time</span> <span class="o">=</span> <span class="n">index</span>
+            <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">time</span> <span class="o">=</span> <span class="n">index</span>
+    <span class="k">return</span> <span class="n">time</span>
+
+<span class="k">def</span> <span class="nf">getTotalValue</span><span class="p">(</span><span class="n">pic</span><span class="p">):</span>
+    <span class="n">TotalValue</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
+    <span class="k">for</span> <span class="n">picname</span> <span class="ow">in</span> <span class="n">pic</span><span class="p">:</span> <span class="c1"># 遍历系列数据</span>
+        <span class="n">series</span> <span class="o">=</span> <span class="n">pic</span><span class="p">[</span><span class="n">picname</span><span class="p">]</span>
+        <span class="n">TotalValue</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">TotalValue</span><span class="p">,</span> <span class="n">series</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">])</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Max&#39;</span><span class="p">,</span> <span class="n">TotalValue</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">()</span>
+    <span class="c1"># print(&#39;Max&#39;, TotalValue.max())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;tatal&#39;</span><span class="p">,</span> <span class="n">TotalValue</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">TotalValue</span>
+
+<span class="c1"># &#39;upper right&#39;  : 1,</span>
+<span class="c1"># &#39;upper left&#39;   : 2,</span>
+<span class="c1"># &#39;lower left&#39;   : 3,</span>
+<span class="c1"># &#39;lower right&#39;  : 4,</span>
+<span class="c1"># &#39;right&#39;        : 5,</span>
+<span class="c1"># &#39;center left&#39;  : 6,</span>
+<span class="c1"># &#39;center right&#39; : 7,</span>
+<span class="c1"># &#39;lower center&#39; : 8,</span>
+<span class="c1"># &#39;upper center&#39; : 9,</span>
+<span class="c1"># &#39;center&#39;       : 10</span>
+<span class="n">inset_index</span> <span class="o">=</span> <span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+
+<span class="c1"># 获取系列名称</span>
+<span class="k">def</span> <span class="nf">getSeriesTitle</span><span class="p">(</span><span class="n">sheet_data</span><span class="p">):</span>
+    <span class="n">column</span> <span class="o">=</span> <span class="n">sheet_data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="n">column</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s1">&#39;V2&#39;</span><span class="p">)</span>
+    <span class="n">column</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s1">&#39;序号&#39;</span><span class="p">)</span>
+    <span class="n">column</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s1">&#39;温度&#39;</span><span class="p">)</span>
+    <span class="n">column</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s1">&#39;IP2&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">column</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">column</span>
+
+<span class="c1"># series_name_list = [&#39;V1_400&#39;, &#39;V1_410&#39;, &#39;V1_420&#39;, &#39;V1_430&#39;, &#39;V1_440&#39;, &#39;V1_450&#39;]</span>
+<span class="n">pic_name_list</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;IP2&#39;</span><span class="p">,</span> <span class="s1">&#39;VP0&#39;</span><span class="p">,</span> <span class="s1">&#39;Vref&#39;</span><span class="p">,</span> <span class="s1">&#39;IP0&#39;</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">handledata</span><span class="p">(</span><span class="n">two_excel</span><span class="p">):</span>
+    <span class="n">locate</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s1">&#39;bmh&#39;</span><span class="p">)</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">60</span><span class="p">,</span> <span class="mi">40</span><span class="p">),</span> <span class="n">facecolor</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">air_test</span><span class="p">,</span> <span class="n">none_test</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">two_excel</span><span class="p">[</span><span class="s1">&#39;air_test&#39;</span><span class="p">],</span> <span class="n">two_excel</span><span class="p">[</span><span class="s1">&#39;none_test&#39;</span><span class="p">]):</span> <span class="c1"># 遍历sheet数据</span>
+        <span class="n">sub_pic</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">locate</span><span class="p">,</span> <span class="n">facecolor</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">)</span> <span class="c1"># 添加子控件</span>
+        <span class="n">sub_pic</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">([])</span> <span class="c1"># 横纵坐标去除</span>
+        <span class="n">sub_pic</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">([])</span> <span class="c1"># 纵纵坐标去除</span>
+        <span class="n">sub_pic</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;V5V5V7改温场--特性曲线(空气)0908 &quot;</span> <span class="o">+</span> <span class="n">air_test</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="mf">1.05</span><span class="p">)</span> <span class="c1"># 标题</span>
+        <span class="n">series_name_list</span> <span class="o">=</span> <span class="n">getSeriesTitle</span><span class="p">(</span><span class="n">two_excel</span><span class="p">[</span><span class="s1">&#39;air_test&#39;</span><span class="p">][</span><span class="n">air_test</span><span class="p">])</span>
+        <span class="n">conductivity_pic</span> <span class="o">=</span> <span class="n">conductivity_data</span><span class="p">(</span><span class="n">two_excel</span><span class="p">[</span><span class="s1">&#39;air_test&#39;</span><span class="p">][</span><span class="n">air_test</span><span class="p">],</span> <span class="n">two_excel</span><span class="p">[</span><span class="s1">&#39;none_test&#39;</span><span class="p">][</span><span class="n">none_test</span><span class="p">])</span>
+        <span class="n">pic_data</span> <span class="o">=</span> <span class="n">pic_dic</span><span class="p">(</span><span class="n">two_excel</span><span class="p">[</span><span class="s1">&#39;air_test&#39;</span><span class="p">][</span><span class="n">air_test</span><span class="p">],</span> <span class="n">pic_name_list</span><span class="p">,</span> <span class="n">series_name_list</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> <span class="c1"># 获取需要显示的图</span>
+        <span class="n">pic_data</span><span class="p">[</span><span class="s1">&#39;1000T ln(1/R*T)&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">conductivity_pic</span><span class="p">[</span><span class="s1">&#39;1000T ln(1/R*T)&#39;</span><span class="p">]</span>
+        <span class="n">pic_data</span><span class="p">[</span><span class="s1">&#39;T R&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">conductivity_pic</span><span class="p">[</span><span class="s1">&#39;T R&#39;</span><span class="p">]</span>
+        <span class="c1"># print(pic_data)</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">pic_data</span><span class="p">:</span> <span class="c1"># 遍历图片数据</span>
+            <span class="n">pic</span> <span class="o">=</span> <span class="n">pic_data</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="n">axins1</span> <span class="o">=</span> <span class="n">inset_axes</span><span class="p">(</span><span class="n">sub_pic</span><span class="p">,</span><span class="n">width</span><span class="o">=</span><span class="s2">&quot;30%&quot;</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="s2">&quot;40%&quot;</span><span class="p">,</span> <span class="n">loc</span><span class="o">=</span><span class="n">inset_index</span><span class="p">[</span><span class="n">index</span><span class="p">])</span> <span class="c1"># 设置显示区域大小</span>
+<span class="c1">#             total_value = getTotalValue(pic)</span>
+            <span class="k">for</span> <span class="n">picname</span> <span class="ow">in</span> <span class="n">pic</span><span class="p">:</span> <span class="c1"># 遍历系列数据</span>
+                <span class="n">series</span> <span class="o">=</span> <span class="n">pic</span><span class="p">[</span><span class="n">picname</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span> 
+                        <span class="n">x_smooth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">series</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">series</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="mi">12</span><span class="p">)</span> <span class="c1">#100 represents number of points to make between T.min and T.max 拟合曲线</span>
+                        <span class="n">y_smooth</span> <span class="o">=</span> <span class="n">make_interp_spline</span><span class="p">(</span><span class="n">series</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">series</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">])(</span><span class="n">x_smooth</span><span class="p">)</span>
+                    <span class="k">except</span><span class="p">:</span>
+                        <span class="n">x_smooth</span> <span class="o">=</span> <span class="n">series</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+                        <span class="n">y_smooth</span> <span class="o">=</span> <span class="n">series</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span>
+                    <span class="n">axins1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_smooth</span><span class="p">,</span> <span class="n">y_smooth</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">picname</span><span class="p">)</span> <span class="c1"># 画图</span>
+                    <span class="c1"># try:</span>
+                    <span class="c1">#     max = total_value.max()</span>
+                    <span class="c1">#     min = total_value.min()</span>
+                    <span class="c1"># except:</span>
+                    <span class="c1">#     max = 100</span>
+                    <span class="c1">#     min = 0</span>
+                    <span class="c1"># print(&#39;max&#39;, max, &#39;min&#39;, min)</span>
+                    <span class="c1"># axins1.set_ylim(min, max)</span>
+                    <span class="k">try</span><span class="p">:</span> <span class="c1"># 避免横坐标为0</span>
+                        <span class="n">axins1</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">series</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">series</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+                    <span class="k">except</span><span class="p">:</span>
+                        <span class="k">pass</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">axins1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">series</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">series</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">],</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">picname</span><span class="p">)</span> <span class="c1"># 画图</span>
+            <span class="c1"># axins1.set_ylim(pic_ylim[index - 1])</span>
+            <span class="c1"># </span>
+
+            <span class="n">axins1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">)</span>
+            <span class="c1"># axins1.set_xlabel(&quot;T&quot;) #xlabel、ylabel：分别设置X、Y轴的标题文字。</span>
+            <span class="c1"># axins1.style.use(&#39;bmh&#39;)</span>
+            <span class="n">axins1</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="c1"># if locate == 2 or locate == 7:</span>
+        <span class="c1">#     locate = locate + 1</span>
+        <span class="n">locate</span> <span class="o">=</span> <span class="n">locate</span> <span class="o">+</span> <span class="mi">1</span>
+
+<span class="c1">#     plt.savefig(&#39;V5V5V7改温场--特性曲线(空气)0908.png&#39;,dpi=200,bbox_inches=&#39;tight&#39;)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">on_button_clicked</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+    <span class="n">two_excel</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">two_excel</span><span class="p">[</span><span class="s2">&quot;air_test&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_excel</span><span class="p">(</span><span class="n">upload_air</span><span class="p">)</span> <span class="c1"># 空气下联泵数据</span>
+    <span class="n">two_excel</span><span class="p">[</span><span class="s2">&quot;none_test&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_excel</span><span class="p">(</span><span class="n">upload_vref</span><span class="p">)</span> <span class="c1"># 空泵vref</span>
+    <span class="n">delSheetName</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;zongbiao&#39;</span><span class="p">,</span> <span class="s1">&#39;v1step&#39;</span><span class="p">,</span> <span class="s1">&#39;unitpump&#39;</span><span class="p">,</span> <span class="s1">&#39;firstpump&#39;</span><span class="p">,</span> <span class="s1">&#39;secondpump&#39;</span><span class="p">,</span> <span class="s1">&#39;thirdpump&#39;</span><span class="p">,</span> <span class="s1">&#39;O2Dependency&#39;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">two_excel</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">sheetName</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">two_excel</span><span class="p">[</span><span class="n">data</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span> <span class="c1"># 字典遍历时不能删除，将字典转化为列表</span>
+            <span class="k">if</span> <span class="n">sheetName</span> <span class="ow">in</span> <span class="n">delSheetName</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="n">two_excel</span><span class="p">[</span><span class="n">data</span><span class="p">][</span><span class="n">sheetName</span><span class="p">]</span>
+                <span class="k">except</span><span class="p">:</span>
+                    <span class="k">pass</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">two_excel</span><span class="p">[</span><span class="n">data</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">two_excel</span><span class="p">[</span><span class="s1">&#39;air_test&#39;</span><span class="p">][</span><span class="s1">&#39;1_NGK28&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">two_excel</span><span class="p">[</span><span class="s1">&#39;air_test&#39;</span><span class="p">][</span><span class="s1">&#39;1_NGK28&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="s1">&#39;V1_420&#39;</span><span class="p">))</span>
+    <span class="n">series</span> <span class="o">=</span> <span class="n">getSeriesTitle</span><span class="p">(</span><span class="n">two_excel</span><span class="p">[</span><span class="s1">&#39;air_test&#39;</span><span class="p">][</span><span class="s1">&#39;1_NGK28&#39;</span><span class="p">])</span>
+    <span class="n">handledata</span><span class="p">(</span><span class="n">two_excel</span><span class="p">)</span>
+
+<span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="c1"># upload.on_incr_counter(count)</span>
+<span class="n">button</span><span class="o">.</span><span class="n">on_click</span><span class="p">(</span><span class="n">on_button_clicked</span><span class="p">)</span>
+<span class="c1"># layout = widgets.VBox([button, output])</span>
+<span class="c1"># layout</span>
 </pre></div>
 
     </div>
